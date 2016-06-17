@@ -1,0 +1,60 @@
+#!/bin/bash
+# This script is intended to determine apache memory footprint.
+# This footprint can be used to set MaxClients/MaxRequestWorkers values
+# Set a value between average and max values for best results.
+# Values are subject to change under load. Run under different loads.
+# comments to http://www.cirgan.net
+# Usage : sh yourscriptname.sh yourapacheprocessname
+
+httpdname=$(netstat -tunalp | grep :80| grep “/” | awk ‘{print $7’} | cut -d “/” -f2 | tail -n 1)
+div=1024
+totmem=$(free -m | grep -i mem | awk ‘{print $2}’)
+
+finkfink() {
+
+httpdmemtot=$(ps -aylC $1 |grep “$1” |awk ‘{print $8’} |sort -n | awk ‘{ SUM += $1} END { print SUM }’)
+httpdmemmax=$(ps -aylC $1 |grep “$1” |awk ‘{print $8’} |sort -n |tail -n 1)
+avghttp=$(expr $httpdmemtot / $httpdcount)
+n=$(expr $avghttp / $div)
+m=$(expr $httpdmemmax / $div)
+
+if [ “$1” = “$httpdname” ] ; then
+
+max=$(expr $totmem / $n)
+max1=$(expr $totmem / $m)
+echo “Total System Memory = $totmem MB”
+echo “$httpdcount $httpdname processes running”
+echo “$httpdname average memory allocation= $n MB”
+echo “Max memory allocated $httpdname process= $m MB”
+echo “Average Memory MaxClients/MaxRequestWorkers = $max”
+echo “Max Memory MaxClients/MaxRequestWorkers = $max1”
+
+fi
+}
+#End of Finkfink
+
+if [ $# -eq 0 ]; then
+echo “Insufficient parametres. Usage: sh $0 $httpdname”
+exit 1
+fi
+
+if [ “$1” != “$httpdname” ] ; then
+
+echo “I couldn’t find $1.Please type apache process name correctly. Usage: sh $0 $httpdname”
+exit 1
+fi
+
+httpdcount=$(ps -aylC $1 |grep “$1” |awk ‘{print $8’} |sort -n | wc -l)
+
+if [ “$httpdcount” -gt 0 ] ; then
+
+finkfink $*
+
+else
+
+echo “Something went wrong.Is your web server running?”
+
+exit 1
+
+fi
+exit 0
